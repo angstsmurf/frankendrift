@@ -4081,6 +4081,12 @@ NextChar2:
 
     Private Function PassSingleRestriction(ByVal restx As clsRestriction, Optional ByVal bIgnoreReferences As Boolean = False) As Boolean
 
+        ' A malformed bracket sequence (more slots than loaded restrictions) can index
+        ' past the restriction list and hand us a Nothing here (e.g. Bug Hunt On Menelaus'
+        ' cl_PlayerMove1 after taking the elevator).  Treat an absent restriction as a
+        ' failed one rather than throwing an NRE that aborts the whole task-selection pass.
+        If restx Is Nothing Then Return False
+
         Try
             Dim rest As New clsRestriction
             rest = restx.Copy
