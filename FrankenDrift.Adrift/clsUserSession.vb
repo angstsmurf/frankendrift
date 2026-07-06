@@ -728,6 +728,7 @@ Public Class RunnerSession
         Dim task As clsTask = Adventure.htblTasks(sTaskKey)
 
         If task.Completed AndAlso Not task.Repeatable Then Return False
+        If Environment.GetEnvironmentVariable("FD_TASK_TRACE") IsNot Nothing Then Console.Error.WriteLine("TASK " & sTaskKey)
         DebugPrint(ItemEnum.Task, task.Key, DebugDetailLevelEnum.Low, "Attempting to execute task " & task.Description & "...")
 
         Dim htblResponsesPassTemp As OrderedHashTable = Nothing
