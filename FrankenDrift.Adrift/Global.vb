@@ -2298,7 +2298,16 @@ Public Module SharedModule
                                             If sKeys.Length = 1 OrElse sKeys.Length = 2 Then
                                                 Dim sDefault As String = ""
                                                 If sKeys.Length = 2 Then sDefault = EvaluateExpression(sKeys(1))
-                                                sResult = """" & InputBox(EvaluateExpression(sKeys(0)), "ADRIFT", sDefault) & """"
+                                                Dim sPrompt As String = EvaluateExpression(sKeys(0))
+                                                ' Let a headless/scripted frontend answer the prompt from the
+                                                ' command script (naming puzzles become reproducible); interactive
+                                                ' frontends fall through to the real InputBox dialog.
+                                                Dim sScripted As String = Nothing
+                                                If Glue IsNot Nothing AndAlso Glue.TryGetScriptedInput(sPrompt, sDefault, sScripted) Then
+                                                    sResult = """" & sScripted & """"
+                                                Else
+                                                    sResult = """" & InputBox(sPrompt, "ADRIFT", sDefault) & """"
+                                                End If
                                             Else
                                                 DisplayError("Expecting 1 or two arguments to PopUpInput[prompt, default]")
                                             End If

@@ -32,6 +32,20 @@ namespace FrankenDrift.Glue
         public bool AskYesNoQuestion(string question, string title = null);
         public void ShowInfo(string info, string title = null);
 
+        /// <summary>
+        /// Supply the answer to a PopUpInput[prompt, default] text function
+        /// (ADRIFT's naming prompts) without a modal dialog.  A headless/scripted
+        /// frontend returns true with the next scripted line (or the default when
+        /// the script is exhausted); interactive frontends leave this at the
+        /// default false, so the engine falls back to a real InputBox.  Keeping
+        /// the default here means GUI/Glk runners need no change.
+        /// </summary>
+        public bool TryGetScriptedInput(string prompt, string dflt, out string response)
+        {
+            response = dflt;
+            return false;
+        }
+
 
         public string QuerySavePath();
         public string QueryRestorePath();

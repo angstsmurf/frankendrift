@@ -92,6 +92,34 @@ namespace FrankenDrift.Headless
             return false;
         }
 
+        // Pull the next command/answer line, skipping blank and '#'-comment
+        // lines exactly like the a5run_dump harness, so the outer command loop
+        // and a mid-command PopUpInput never disagree about which line is next.
+        public bool TryNextMeaningfulLine(out string line)
+        {
+            while (_scriptedAnswers.Count > 0)
+            {
+                var raw = _scriptedAnswers.Dequeue().Trim();
+                if (raw.Length == 0 || raw.StartsWith("#")) continue;
+                line = raw;
+                return true;
+            }
+            line = "";
+            return false;
+        }
+
+        // Answer a PopUpInput prompt from the same script stream the command
+        // loop reads, so naming puzzles are scriptable.  Headless never blocks on
+        // a modal InputBox: it returns the next scripted line, or the author's
+        // default once the script is exhausted (matching a5run_dump, whose
+        // PopUpInput callback likewise falls back to the default at EOF).
+        public bool TryGetScriptedInput(string prompt, string dflt, out string response)
+        {
+            if (TryNextMeaningfulLine(out var l)) { response = l; return true; }
+            response = dflt;
+            return true;
+        }
+
         public void OutputHTML(string source) => EmitHtml(source);
 
         // ---- HTML -> plain text ---------------------------------------------
@@ -269,11 +297,12 @@ namespace FrankenDrift.Headless
                 return 2;
             }
 
-            foreach (var raw in lines)
+            // Drive the loop from the SAME queue PopUpInput answers pull from, so
+            // a naming prompt consumes its line and the loop resumes after it.
+            // (Comments/blank lines are skipped inside TryNextMeaningfulLine,
+            // mirroring Scarier's a5run script handling.)
+            while (runner.TryNextMeaningfulLine(out var cmd))
             {
-                string cmd = raw.Trim();
-                // Comments/blank lines mirror Scarier's a5run script handling.
-                if (cmd.Length == 0 || cmd.StartsWith("#")) continue;
                 Console.Out.Write("\n> " + cmd + "\n");
                 runner.txtInput.Text = cmd;
                 Adrift.SharedModule.UserSession.Process(cmd);
