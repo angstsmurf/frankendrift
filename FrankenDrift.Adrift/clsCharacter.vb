@@ -1478,7 +1478,24 @@ Public Class clsWalk
 
 
     Public Sub DoAnySteps()
-        If Status = StatusEnum.Running Then
+        ' A *structurally* zero-length looping walk -- the standard "follow the
+        ' player" walk (a lone `Player 0` step, Loops; every step's turn count is
+        ' exactly 0) -- can never restart (lStop's `Length > 0` guard blocks the
+        ' recursion a 0-length restart would cause), so it is Finished immediately
+        ' after its lStart.  The real ADRIFT Runner still steps such a walker
+        ' toward the player every turn: IncrementTimer calls DoAnySteps each tick
+        ' and, with Length 0, TimerFromStartOfWalk stays 0 so the step re-fires.
+        ' The plain `Status = Running` gate silently broke this (Son of Camelot's
+        ' Megan never follows to Merlin's grave, so the game is unwinnable).  Let a
+        ' Finished structural-0 loop through.  Test the step turn counts, not the
+        ' runtime Length: a normal patrol walk STOPPED before it ever started
+        ' (Fortress of Fear's Custodian) is also Finished with Length 0, but its
+        ' steps carry real durations -- it must stay stuck, not teleport.
+        Dim bStructZero As Boolean = arlSteps.Count > 0
+        For Each stp As clsStep In arlSteps
+            If stp.ftTurns.iFrom <> 0 OrElse stp.ftTurns.iTo <> 0 Then bStructZero = False : Exit For
+        Next
+        If Status = StatusEnum.Running OrElse (Status = StatusEnum.Finished AndAlso bLoop AndAlso bStructZero) Then
             Dim iStepLength As Integer = 0
             For Each [step] As clsStep In arlSteps
                 If iStepLength = TimerFromStartOfWalk Then
