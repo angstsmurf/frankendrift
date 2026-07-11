@@ -1245,7 +1245,18 @@ Module FileIO
                     If .Item("EnableDebugger") IsNot Nothing Then a.EnableDebugger = GetBool(.Item("EnableDebugger").InnerText)
                     If .Item("EndGameText") IsNot Nothing Then a.WinningText = LoadDescription(xmlDoc.Item("Adventure"), "EndGameText")
                     If .Item("Elapsed") IsNot Nothing Then a.iElapsed = SafeInt(.Item("Elapsed").InnerText)
-                    If .Item("TaskExecution") IsNot Nothing Then a.TaskExecution = CType([Enum].Parse(GetType(clsAdventure.TaskExecutionEnum), .Item("TaskExecution").InnerText), clsAdventure.TaskExecutionEnum)
+                    If .Item("TaskExecution") IsNot Nothing Then
+                        a.TaskExecution = CType([Enum].Parse(GetType(clsAdventure.TaskExecutionEnum), .Item("TaskExecution").InnerText), clsAdventure.TaskExecutionEnum)
+                    ElseIf dFileVersion > 0 AndAlso dFileVersion < 5.000022 Then
+                        ' The <TaskExecution> element and the HighestPriorityTask default
+                        ' both arrived in ADRIFT 5.0.22.  Files older than that never carry
+                        ' the element and ran v4 "highest priority passing task" logic in
+                        ' Campbell's original Runner, so fall back to that here instead of the
+                        ' post-5.0.22 default -- otherwise pre-5.0.22 games whose puzzles rely
+                        ' on a lower-priority passing task firing after a failing library task
+                        ' become unwinnable (e.g. Return to Camelot, v5.000020, "unlock chain").
+                        a.TaskExecution = clsAdventure.TaskExecutionEnum.HighestPriorityPassingTask
+                    End If
                     If .Item("WaitTurns") IsNot Nothing Then a.WaitTurns = SafeInt(.Item("WaitTurns").InnerText)
                     If .Item("KeyPrefix") IsNot Nothing Then
                         a.KeyPrefix = .Item("KeyPrefix").InnerText
