@@ -29,6 +29,19 @@ Public Module SharedModule
     Public Const DEFAULT_OUTPUTCOLOUR As Integer = -15096438
     Public Const DEFAULT_LINKCOLOUR As Integer = -11806788
 
+    ''' <summary>
+    ''' ADRIFT TAF colours are Windows OLE/COLORREF (0x00BBGGRR).
+    ''' Convert to ARGB (0xFFRRGGBB) for Color.FromArgb / Glk stylehints.
+    ''' Matches ColorTranslator.FromOle(...).ToArgb() in ADRIFT-5.
+    ''' </summary>
+    Public Function OleColourToArgb(ByVal ole As Integer) As Integer
+        Dim u As Integer = ole And &HFFFFFF
+        Dim r As Integer = u And &HFF
+        Dim g As Integer = (u >> 8) And &HFF
+        Dim b As Integer = (u >> 16) And &HFF
+        Return (255 << 24) Or (r << 16) Or (g << 8) Or b
+    End Function
+
     ' Mandatory properties
     Public Const SHORTLOCATIONDESCRIPTION As String = "ShortLocationDescription"
     Public Const LONGLOCATIONDESCRIPTION As String = "LongLocationDescription"
