@@ -313,24 +313,36 @@ namespace FrankenDrift.Headless
             // mirroring Scarier's a5run script handling.)
             while (runner.TryNextMeaningfulLine(out var cmd))
             {
+                // Feed lines PAST game over too: EvaluateInput's top guard
+                // (clsUserSession.vb:3360-3369) then owns the input --
+                // SystemTasks(True) honours restart/restore/quit/undo and
+                // everything else gets "Please give one of the answers
+                // above."  UNDO restores the pre-fatal state and play
+                // resumes, which lets a script exercise die-undo-continue
+                // flows; a trailing junk command after a win produces the
+                // same guard line in both engines instead of being dropped.
+                bool wasRunning = Adrift.SharedModule.Adventure != null &&
+                    Adrift.SharedModule.Adventure.eGameState ==
+                        Adrift.clsAction.EndGameEnum.Running;
                 Console.Out.Write("\n> " + cmd + "\n");
                 runner.txtInput.Text = cmd;
                 Adrift.SharedModule.UserSession.Process(cmd);
-                if (Adrift.SharedModule.Adventure != null)
+                if (Adrift.SharedModule.Adventure == null)
+                    break;
+                // A guard-consumed post-game input is not a turn (the guard
+                // returns before any turn processing), so only count and
+                // time-tick commands submitted while the game was running.
+                if (wasRunning)
                     Adrift.SharedModule.Adventure.Turns += 1;
                 // The real Runner's 1-second tmrEvents timer, deterministically:
                 // tick every TimeBased event exactly once per processed input
                 // line (one turn == one second), matching Scarier's
                 // ev_time_tick_all.  Real-time games (The Salvage's mission /
                 // refuel / end-game events) stay playable and turn-deterministic.
-                if (Adrift.SharedModule.Adventure != null &&
+                if (wasRunning &&
                     Adrift.SharedModule.Adventure.eGameState ==
                         Adrift.clsAction.EndGameEnum.Running)
                     Adrift.SharedModule.UserSession.TimeBasedStuff();
-                if (Adrift.SharedModule.Adventure == null ||
-                    Adrift.SharedModule.Adventure.eGameState !=
-                        Adrift.clsAction.EndGameEnum.Running)
-                    break;
             }
             Console.Out.Flush();
             return 0;
