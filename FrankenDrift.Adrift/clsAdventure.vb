@@ -615,6 +615,7 @@ Public Class clsAdventure
         End Set
     End Property
 
+    ''' <summary>ARGB (0xFFRRGGBB). TAF OLE values are converted at load via OleColourToArgb.</summary>
     Public Property DeveloperDefaultBackgroundColour As Integer = DEFAULT_BACKGROUNDCOLOUR
     Public Property DeveloperDefaultInputColour As Integer = DEFAULT_INPUTCOLOUR
     Public Property DeveloperDefaultOutputColour As Integer = DEFAULT_OUTPUTCOLOUR
