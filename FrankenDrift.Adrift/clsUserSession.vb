@@ -5286,19 +5286,31 @@ SkipTest:
     ' IgnoreReferences is for when we are evaluating whether the task is completable or not, but we don't have any refs yet
     Public Function PassRestrictions(ByVal arlRestrictions As RestrictionArrayList, Optional ByVal bIgnoreReferences As Boolean = False, Optional tas As clsTask = Nothing) As Boolean
 
+        ' iRestNum is a session field, and restriction evaluation is re-entrant: a
+        ' HaveRouteInDirection restriction reaches clsCharacter.HasRouteInDirection,
+        ' which calls back in here to evaluate the direction's own restrictions.  Save
+        ' and restore it around the evaluation so the inner walk cannot leave the outer
+        ' one pointing at the wrong index (upstream ADRIFT 5.0.36 does the same).
+        Dim iRestNumIn As Integer = iRestNum
         iRestNum = 0
-        sRouteError = ""
 
-        If arlRestrictions.Count = 0 Then
-            Return True
-        Else
-            ' We have to check each combination of objects from our task
-            ' e.g. "get %objects% from %object2%
-            ' "get red ball and blue ball from box"
-            ' get red ball from box
-            ' get blue ball from box
-            Return EvaluateRestrictionBlock(arlRestrictions, arlRestrictions.BracketSequence, bIgnoreReferences, tas)
-        End If
+        Try
+            sRouteError = ""
+
+            If arlRestrictions.Count = 0 Then
+                Return True
+            Else
+                ' We have to check each combination of objects from our task
+                ' e.g. "get %objects% from %object2%
+                ' "get red ball and blue ball from box"
+                ' get red ball from box
+                ' get blue ball from box
+                Return EvaluateRestrictionBlock(arlRestrictions, arlRestrictions.BracketSequence, bIgnoreReferences, tas)
+            End If
+
+        Finally
+            iRestNum = iRestNumIn
+        End Try
 
     End Function
 
