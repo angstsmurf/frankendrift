@@ -4,8 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
 	  <ApplicationIcon>FrankenDrift_icon_ProtoType2.ico</ApplicationIcon>
-	  <VersionPrefix>0.7.0</VersionPrefix>
-	  <VersionSuffix>indev</VersionSuffix>
+	  <VersionPrefix>0.8.0</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>
