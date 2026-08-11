@@ -132,9 +132,36 @@ namespace FrankenDrift.Headless
 
         public void OutputHTML(string source) => EmitHtml(source);
 
+        // Output is held here until the next prompt is about to be printed (or
+        // the run ends) instead of going straight to the console, because <del>
+        // deletes from the whole turn's accumulated text -- see EmitHtml.
+        private static readonly StringBuilder _pending = new();
+
+        public static void FlushOutput()
+        {
+            if (_pending.Length == 0) return;
+            Console.Out.Write(_pending.ToString());
+            _pending.Clear();
+        }
+
         // ---- HTML -> plain text ---------------------------------------------
         // Mirrors GlkHtmlWin's handling: <br>=newline, style tags dropped,
         // <cls> clears, entities decoded.  Media tags (img/audio) dropped.
+        //
+        // <del> deletes one character from the text accumulated SO FAR THIS
+        // TURN, not merely from this message: measured in the genuine ADRIFT
+        // 5.0.36 Runner (run500.exe) with the Scarier delrt probe, a <del> at
+        // the head of a message reaches back and eats the pSpace join and then
+        // the tail of the PREVIOUS message.  That is why output is buffered in
+        // _pending rather than written as each message arrives.  (Neither FD
+        // frontend gets this right: GlkHtmlWin.cs deletes from a `current`
+        // StringBuilder that is cleared at every tag and then falls back to
+        // Gargoyle's garglk_unput_string; only the Eto AdriftOutput.cs does a
+        // whole-window Buffer.Delete.  The Runner behaves like the latter.)
+        //
+        // <cls> deliberately clears only what THIS message contributed, which
+        // is what the old write-through code did; widening it to the whole
+        // turn buffer would be a separate behaviour change.
         private static void EmitHtml(string src)
         {
             if (string.IsNullOrEmpty(src)) return;
@@ -144,7 +171,8 @@ namespace FrankenDrift.Headless
             // widget); we do too, and print our own "> cmd" line instead.
             if (src.StartsWith("<c><font face=\"Wingdings\"")) return;
             src = src.Replace("\r\n", "\n");
-            var sb = new StringBuilder();
+            var sb = _pending;
+            int start = sb.Length;    // where this message's own text begins
             int i = 0;
             while (i < src.Length)
             {
@@ -152,27 +180,56 @@ namespace FrankenDrift.Headless
                 if (c == '<')
                 {
                     int end = src.IndexOf('>', i);
-                    if (end < 0) { sb.Append(src.Substring(i)); break; }
+                    if (end < 0) { AppendDecoded(sb, src, i, src.Length); break; }
                     string tag = src.Substring(i + 1, end - i - 1);
                     string low = tag.ToLowerInvariant().Trim();
                     if (low == "br" || low == "br/" || low == "br /")
                         sb.Append('\n');
                     else if (low == "cls")
-                        sb.Clear();       // screen clear: drop buffered text
+                        sb.Length = start;   // screen clear: drop this message
+                    else if (low == "del")
+                    {
+                        // One character off the accumulated turn text; a
+                        // surrogate pair counts as one.
+                        if (sb.Length > 0)
+                        {
+                            int n = (sb.Length >= 2 && char.IsLowSurrogate(sb[sb.Length - 1])
+                                     && char.IsHighSurrogate(sb[sb.Length - 2])) ? 2 : 1;
+                            sb.Length -= n;
+                            if (start > sb.Length) start = sb.Length;
+                        }
+                    }
                     // all other tags (c/b/i/center/tt/font/img/audio/waitkey...) drop
                     i = end + 1;
                 }
                 else
                 {
-                    sb.Append(c);
-                    i++;
+                    int run = i;
+                    while (run < src.Length && src[run] != '<') run++;
+                    AppendDecoded(sb, src, i, run);
+                    i = run;
                 }
             }
-            string txt = sb.ToString()
-                .Replace("&lt;", "<").Replace("&gt;", ">")
-                .Replace("&perc;", "%").Replace("&quot;", "\"")
-                .Replace("&amp;", "&");
-            Console.Out.Write(txt);
+        }
+
+        // Entities are decoded as each text run is appended (rather than over
+        // the finished string) so that a following <del> removes one *decoded*
+        // character instead of half an entity.
+        private static void AppendDecoded(StringBuilder sb, string src, int from, int to)
+        {
+            for (int i = from; i < to; i++)
+            {
+                char c = src[i];
+                if (c == '&')
+                {
+                    if (string.CompareOrdinal(src, i, "&lt;", 0, 4) == 0) { sb.Append('<'); i += 3; continue; }
+                    if (string.CompareOrdinal(src, i, "&gt;", 0, 4) == 0) { sb.Append('>'); i += 3; continue; }
+                    if (string.CompareOrdinal(src, i, "&perc;", 0, 6) == 0) { sb.Append('%'); i += 5; continue; }
+                    if (string.CompareOrdinal(src, i, "&quot;", 0, 6) == 0) { sb.Append('"'); i += 5; continue; }
+                    if (string.CompareOrdinal(src, i, "&amp;", 0, 5) == 0) { sb.Append('&'); i += 4; continue; }
+                }
+                sb.Append(c);
+            }
         }
     }
 
@@ -324,6 +381,9 @@ namespace FrankenDrift.Headless
                 bool wasRunning = Adrift.SharedModule.Adventure != null &&
                     Adrift.SharedModule.Adventure.eGameState ==
                         Adrift.clsAction.EndGameEnum.Running;
+                // The previous turn's text can no longer be reached by a <del>,
+                // so it is safe to commit before echoing the next command.
+                HeadlessRunner.FlushOutput();
                 Console.Out.Write("\n> " + cmd + "\n");
                 runner.txtInput.Text = cmd;
                 Adrift.SharedModule.UserSession.Process(cmd);
@@ -344,6 +404,7 @@ namespace FrankenDrift.Headless
                         Adrift.clsAction.EndGameEnum.Running)
                     Adrift.SharedModule.UserSession.TimeBasedStuff();
             }
+            HeadlessRunner.FlushOutput();
             Console.Out.Flush();
             return 0;
         }
