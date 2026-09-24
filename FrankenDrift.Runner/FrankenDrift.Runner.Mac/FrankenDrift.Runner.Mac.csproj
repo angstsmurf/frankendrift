@@ -6,6 +6,11 @@
 
     <RuntimeIdentifiers>osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
+
+  <!-- Eto.Platform.Mac64 sets RunCommand with Windows path separators; override for macOS dotnet run. -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform(OSX))">
+    <RunCommand>$([System.IO.Path]::Combine($(MSBuildProjectDirectory), bin, $(Configuration), $(TargetFramework), $(MSBuildProjectName).app, Contents, MacOS, $(AssemblyName)))</RunCommand>
+  </PropertyGroup>
 	
   <ItemGroup>
     <ProjectReference Include="..\FrankenDrift.Runner\FrankenDrift.Runner.csproj" />
